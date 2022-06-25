@@ -135,3 +135,9 @@
 .css-ueukts-MuiButtonBase-root-MuiToggleButton-root.Mui-selected {
   background-color: #fdb51b !important
 }
+.css-1yk1gt9-MuiInputBase-root-MuiOutlinedInput-root-MuiSelect-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: #fdb51b !important;
+}
+.css-bpeome-MuiSvgIcon-root-MuiSelect-icon, .css-1sumxir-MuiFormLabel-root-MuiInputLabel-root.Mui-focused{
+  color: #fdb51b !important;
+}

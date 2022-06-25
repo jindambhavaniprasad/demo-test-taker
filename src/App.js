@@ -1,6 +1,6 @@
 import './App.css';
 import Landing from './CodeEditor/Landing';
-import { question1, question2, question3 } from './question';
+import { question1, question2, question3 } from './util/question';
 
 
 function App() {

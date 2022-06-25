@@ -1,19 +1,17 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import CodeEditorWindow from "./CodeEditorWindow";
-import { languageOptions } from "../constants/languages";
 import _ from 'lodash'
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import axios from 'axios';
-import { Button, Paper, Tooltip } from '@mui/material'
+import { Button, Paper } from '@mui/material'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import Progress from "../util/progress";
 import TestCases from "./TestCases";
-import ThemeToggle from "../Dropdowns/ThemeToggle";
-import FontChange from "../Dropdowns/FontChange";
 import screenfull from 'screenfull';
-import VideoDialog from "../Dropdowns/VideoDialog";
 import { Container } from "@mui/system";
+import Header from "../Header/Header";
+import { postOptions, languages, getOptions } from "../util/judge0";
 
 
 const javascriptDefault = `// some comment`;
@@ -23,18 +21,12 @@ const Landing = ({ question, initialCode, testCase }) => {
     const [code, setCode] = useState(initialCode || javascriptDefault);
     const [processing, setProcessing] = useState(null);
     const [theme, setTheme] = useState("light");
-    // const [language, setLanguage] = useState(languageOptions[0]);
+    const [language, setLanguage] = useState(languages[2]);
     const [testCases, setTestCases] = useState(testCase)
     const [fontSize, setFontSize] = useState(14)
     const [videoOn, isVideoOn] = useState(false)
     const [fullScreen, isFullScreen] = useState(true)
     // const [customInput, setCustomInput] = useState('')
-
-
-    // const onSelectChange = (sl) => {
-    //     console.log("selected Option...", sl.target.value);
-    //     setLanguage(languageOptions.find(x => x.id === sl.target.value));
-    // };
 
 
     const onChange = (action, data) => {
@@ -54,16 +46,9 @@ const Landing = ({ question, initialCode, testCase }) => {
         for await (let tc of testCase) {
             let writtenCode = `${code}  \n\n ${tc.inputCode}`
             try {
-                const request = {
-                    clientId: process.env.REACT_APP_JDOODLE_API_CLIENT_ID,
-                    clientSecret: process.env.REACT_APP_JDOODLE_API_CLIENT_KEY,
-                    script: writtenCode,
-                    language: 'nodejs',
-                    versionIndex: '4'
-                }
-                const result = await axios.post(process.env.REACT_APP_JDOODLE_API_URL, request)
-                // eslint-disable-next-line
-                // const result = { data: { output: eval(request.script) } }
+                const request = postOptions({ language_id: language.id, source_code: btoa(writtenCode) })
+                const response = await axios.request(request)
+                const result = { data: { output: await checkStatus(response?.data?.token) } }
                 let output = ''
                 try {
                     output = JSON.parse(result.data?.output) || undefined
@@ -75,22 +60,28 @@ const Landing = ({ question, initialCode, testCase }) => {
                     tc.output = _.sortBy(tc.output)
                 }
                 if (_.isEqual(output, tc.output)) {
-                    updatedTestCases = updatedTestCases.map(t => (tc.testCaseId === t.testCaseId) ? { ...t, passed: true } : t)
-                    setProcessing(false);
-                    showSuccessToast(`Testcase ${tc.testCaseId} passed`)
+                    updatedTestCases = updatedTestCases.map(t => (tc.testCaseId === t.testCaseId) ? { ...t, passed: true, actualOutput: output } : t)
+                    showSuccessToast(`${tc.hidden ? 'Hidden' : ''} Testcase ${tc.hidden ? '' : tc.testCaseId} passed`)
                 } else {
-                    updatedTestCases = updatedTestCases.map(t => (tc.testCaseId === t.testCaseId) ? { ...t, passed: false } : t)
-                    setProcessing(false);
+                    updatedTestCases = updatedTestCases.map(t => (tc.testCaseId === t.testCaseId) ? { ...t, passed: false, actualOutput: output } : t)
                     showErrorToast(`Testcase ${tc.testCaseId} failed`)
                 }
             } catch (ex) {
                 updatedTestCases = updatedTestCases.map(t => (tc.testCaseId === t.testCaseId) ? { ...t, passed: undefined } : t)
-                setProcessing(false);
                 showErrorToast()
             }
         }
         setTestCases(updatedTestCases)
+        setProcessing(false)
     };
+
+
+    const checkStatus = async (token) => {
+        const request = getOptions(token)
+        const result = await axios.request(request)
+        const output = atob(result.data.stdout)
+        return output
+    }
 
     const showSuccessToast = (msg) => {
         toast.success(msg || `Compiled Successfully!`, {
@@ -124,7 +115,7 @@ const Landing = ({ question, initialCode, testCase }) => {
 
     return (
         <>
-            <Container style={{ margin: 0, padding: 0, maxWidth: '100%' }} onMouseLeave={(e)=>/*alert(`Please don't leave the screen`)*/console.log('left')}>
+            <Container style={{ margin: 0, padding: 0, maxWidth: '100%' }} onMouseLeave={(e) =>/*alert(`Please don't leave the screen`)*/console.log('left')}>
                 <ToastContainer
                     position="top-right"
                     autoClose={2000}
@@ -136,36 +127,28 @@ const Landing = ({ question, initialCode, testCase }) => {
                     draggable
                     pauseOnHover
                 />
-                <Paper style={{ display: 'flex', gap: '15px', padding: '20px', margin: '10px', alignItems: 'center', justifyContent: 'flex-end', boxShadow: '0px 0px 7px 0px rgb(0 0 0 / 20%)' }}>
-                    <div style={{ height: '40px', color: 'black !Important' }}>
-                        {/* <LanguagesDropdown onSelectChange={onSelectChange} language={language?.value} /> */}
-                    </div>
-                    <div style={{ height: '40px', color: 'black !Important' }}>
-                        <Paper>
-                            <Button style={{ color: '#fdb51b', fontWeight: 900 }} onClick={handleFullScreen} >{!fullScreen ? `Exit Full Screen` : `Full Screen`}</Button>
-                        </Paper>
-                    </div>
-                    <div style={{ height: '40px', color: 'black !Important' }}>
-                        <VideoDialog />
-                    </div>
-                    <div style={{ height: '30px', color: 'black !Important' }}>
-                        <FontChange fontSize={fontSize} setFontSize={setFontSize} />
-                    </div>
-                    <div style={{ height: '40px', color: 'black !Important' }}>
-                        <ThemeToggle setTheme={setTheme} theme={theme} />
-                    </div>
-                </Paper>
+                <Header
+                    fontSize={fontSize}
+                    setFontSize={setFontSize}
+                    theme={theme}
+                    setTheme={setTheme}
+                    fullScreen={fullScreen}
+                    handleFullScreen={handleFullScreen}
+                    language={language}
+                    setLanguage={setLanguage}
+                    videoOn={videoOn}
+                    isVideoOn={isVideoOn}
+                />
                 <div style={{ width: '100%' }}>
                     <div style={{ display: 'flex', width: '100%', justifyContent: 'center' }}>
                         <Paper style={{ width: '50%', padding: '0 30px', margin: '10px', border: '1px solid #cacaca' }}>
                             <div dangerouslySetInnerHTML={{ __html: question }}></div>
-                            {/* <Typography style={{ fontSize: '1.2rem' }}>{question}</Typography> */}
                         </Paper>
                         <Paper style={{ width: '50%', padding: '0 30px', margin: '10px', border: '1px solid #cacaca' }}>
                             <CodeEditorWindow
                                 code={code}
                                 onChange={onChange}
-                                language={languageOptions[0]?.value}
+                                language={language.monacoL}
                                 theme={theme}
                                 fontSize={fontSize}
                             />
@@ -189,7 +172,7 @@ const Landing = ({ question, initialCode, testCase }) => {
                                     </Button>
                                 </div>
                             </div>
-                            <TestCases testCases={testCases} />
+                            <TestCases testCases={testCases} setTestCases={setTestCases} />
                         </Paper>
                     </div>
                 </div>
